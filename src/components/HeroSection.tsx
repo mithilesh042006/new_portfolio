@@ -13,7 +13,7 @@ export default function HeroSection() {
     useEffect(() => {
         // 1. Initialize Lenis
         const lenis = new Lenis({
-            duration: 1.2,
+            duration: 0.6,
             smoothWheel: true,
             syncTouch: true,
         });
@@ -23,7 +23,7 @@ export default function HeroSection() {
         gsap.ticker.add((time) => {
             lenis.raf(time * 1000);
         });
-        gsap.ticker.lagSmoothing(0, 0);
+        gsap.ticker.lagSmoothing(0);
 
         // 2. Setup Canvas
         const canvas = canvasRef.current;
@@ -130,7 +130,7 @@ export default function HeroSection() {
                     trigger: seq.sectionId,
                     start: "top top",
                     end: "bottom top",
-                    scrub: 0.5,
+                    scrub: true,
                     onUpdate: () => {
                         currentSeqIndex = index;
                         currentFrameIndex = Math.round(obj.frame);
@@ -143,12 +143,14 @@ export default function HeroSection() {
 
         // 5. GSAP Text Fades
         gsap.set("#text-1", { opacity: 1 });
+        gsap.set("#text-2", { opacity: 0 });
+        gsap.set("#text-3", { opacity: 0 });
 
         sequences.forEach((seq, index) => {
             const trigger = ScrollTrigger.create({
                 trigger: seq.sectionId,
                 start: "top 60%",
-                end: "bottom 60%",
+                end: "center 60%",
                 onEnter: () => gsap.to(`#text-${index + 1}`, { opacity: 1, duration: 1, ease: "power2.out" }),
                 onLeave: () => gsap.to(`#text-${index + 1}`, { opacity: 0, duration: 1, ease: "power2.out" }),
                 onEnterBack: () => gsap.to(`#text-${index + 1}`, { opacity: 1, duration: 1, ease: "power2.out" }),
@@ -158,6 +160,19 @@ export default function HeroSection() {
             });
             triggers.push(trigger);
         });
+
+        // text-3: appears in the second half of the last section (before hero scroll ends)
+        const text3Trigger = ScrollTrigger.create({
+            trigger: "#section-3",
+            start: "center 60%",
+            end: "bottom 60%",
+            onEnter: () => gsap.to("#text-3", { opacity: 1, duration: 1, ease: "power2.out" }),
+            onLeave: () => gsap.to("#text-3", { opacity: 0, duration: 1, ease: "power2.out" }),
+            onEnterBack: () => gsap.to("#text-3", { opacity: 1, duration: 1, ease: "power2.out" }),
+            onLeaveBack: () => gsap.to("#text-3", { opacity: 0, duration: 1, ease: "power2.out" }),
+        });
+        triggers.push(text3Trigger);
+
 
         // Cleanup
         return () => {
@@ -190,7 +205,6 @@ export default function HeroSection() {
             </div>
 
             <main className="scroll-content">
-                <section className="sequence-section" id="section-1"></section>
                 <section className="sequence-section" id="section-2"></section>
                 <section className="sequence-section" id="section-3"></section>
             </main>

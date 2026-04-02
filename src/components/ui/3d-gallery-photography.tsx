@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -345,7 +345,7 @@ function GalleryScene({
         const imageAdvance =
             totalImages > 0 ? visibleCount % totalImages || totalImages : 0;
         const totalRange = depthRange;
-        const halfRange = totalRange / 2;
+
 
         planesData.current.forEach((plane, i) => {
             let newZ = plane.z + scrollVelocity * delta * 10;
@@ -374,7 +374,7 @@ function GalleryScene({
             plane.x = spatialPositions[i]?.x ?? 0;
             plane.y = spatialPositions[i]?.y ?? 0;
 
-            const worldZ = plane.z - halfRange;
+
 
             // Calculate opacity based on fade settings
             const normalizedPosition = plane.z / totalRange; // 0 to 1
@@ -515,30 +515,29 @@ function FallbackGallery({ images }: { images: ImageItem[] }) {
 
 export default function InfiniteGallery({
     images,
+    speed = 1,
+    visibleCount = 8,
     className = 'h-96 w-full',
     style,
     fadeSettings = {
-        fadeIn: { start: 0.05, end: 0.25 },
-        fadeOut: { start: 0.4, end: 0.43 },
+        fadeIn: { start: 0.05, end: 0.20 },
+        fadeOut: { start: 0.60, end: 0.65 },
     },
     blurSettings = {
         blurIn: { start: 0.0, end: 0.1 },
-        blurOut: { start: 0.4, end: 0.43 },
-        maxBlur: 8.0,
+        blurOut: { start: 0.60, end: 0.65 },
+        maxBlur: 6.0,
     },
 }: InfiniteGalleryProps) {
     const [webglSupported, setWebglSupported] = useState(true);
 
     useEffect(() => {
-        // Check WebGL support
         try {
             const canvas = document.createElement('canvas');
             const gl =
                 canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            if (!gl) {
-                setWebglSupported(false);
-            }
-        } catch (e) {
+            if (!gl) setWebglSupported(false);
+        } catch {
             setWebglSupported(false);
         }
     }, []);
@@ -554,11 +553,13 @@ export default function InfiniteGallery({
     return (
         <div className={className} style={style}>
             <Canvas
-                camera={{ position: [0, 0, 0], fov: 55 }}
+                camera={{ position: [0, 0, 0], fov: 75 }}
                 gl={{ antialias: true, alpha: true }}
             >
                 <GalleryScene
                     images={images}
+                    speed={speed}
+                    visibleCount={visibleCount}
                     fadeSettings={fadeSettings}
                     blurSettings={blurSettings}
                 />

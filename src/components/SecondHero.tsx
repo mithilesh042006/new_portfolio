@@ -18,42 +18,105 @@ export default function SecondHero() {
     const roleCycleRef = useRef<HTMLSpanElement>(null);
     const bioRef = useRef<HTMLParagraphElement>(null);
     const linksRef = useRef<HTMLDivElement>(null);
-    const roleIndex = useRef(0);
-
-    /* ─── Mouse-follow clip-path reveal ─── */
+    const roleIndex = useRef(0);    /* ─── Liquid blob clip-path reveal ─── */
     useEffect(() => {
         const imageWrap = imageWrapRef.current;
         const revealLayer = revealLayerRef.current;
         if (!imageWrap || !revealLayer) return;
 
+        // ── State ──────────────────────────────────────
         let animFrame: number;
-        let targetX = 50;
-        let targetY = 50;
-        let currentX = 50;
-        let currentY = 50;
+        let mouseX = 0.5, mouseY = 0.5;   // normalized 0–1
+        let currentX = 0.5, currentY = 0.5;
         let currentRadius = 0;
         let targetRadius = 0;
+        let time = 0;
 
+        const NUM_POINTS = 10;             // blob vertices
+        const NOISE_AMP = 22;              // px of edge wiggle
+
+        // ── Helpers ────────────────────────────────────
         const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-        const tick = () => {
-            currentX = lerp(currentX, targetX, 0.1);
-            currentY = lerp(currentY, targetY, 0.1);
-            currentRadius = lerp(currentRadius, targetRadius, 0.08);
+        /** Generate blob points around (cx,cy) at radius with sinusoidal noise */
+        function blobPoints(cx: number, cy: number, radius: number, t: number) {
+            const pts: { x: number; y: number }[] = [];
+            for (let i = 0; i < NUM_POINTS; i++) {
+                const angle = (i / NUM_POINTS) * Math.PI * 2;
+                // Two overlapping sine waves per point → organic, non-repeating feel
+                const wobble =
+                    Math.sin(t * 2.1 + i * 1.37) * NOISE_AMP +
+                    Math.sin(t * 1.3 + i * 2.71) * NOISE_AMP * 0.45 +
+                    Math.sin(t * 0.7 + i * 0.94) * NOISE_AMP * 0.2;
+                const r = Math.max(0, radius + wobble);
+                pts.push({
+                    x: cx + Math.cos(angle) * r,
+                    y: cy + Math.sin(angle) * r,
+                });
+            }
+            return pts;
+        }
 
-            revealLayer.style.clipPath = `circle(${currentRadius}% at ${currentX}% ${currentY}%)`;
+        /** Convert ordered points to a closed smooth path via catmull-rom → cubic bezier */
+        function catmullRomPath(pts: { x: number; y: number }[]): string {
+            const n = pts.length;
+            const f = (v: number) => v.toFixed(2);
+            let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
+            for (let i = 0; i < n; i++) {
+                const p0 = pts[(i - 1 + n) % n];
+                const p1 = pts[i];
+                const p2 = pts[(i + 1) % n];
+                const p3 = pts[(i + 2) % n];
+                // catmull-rom tension = 1/6
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+                d += ` C ${f(cp1x)} ${f(cp1y)}, ${f(cp2x)} ${f(cp2y)}, ${f(p2.x)} ${f(p2.y)}`;
+            }
+            return d + " Z";
+        }
+
+        // ── rAF loop ───────────────────────────────────
+        const tick = (timestamp: number) => {
+            time = timestamp / 1000;
+
+            // Lazy dimensions (re-read each frame — handles resize)
+            const w = imageWrap.offsetWidth;
+            const h = imageWrap.offsetHeight;
+            const maxRadius = Math.min(w, h) * 0.88; // spotlight radius
+
+            // Lerp cursor follower (slightly sluggish for organic feel)
+            currentX = lerp(currentX, mouseX, 0.07);
+            currentY = lerp(currentY, mouseY, 0.07);
+            // Lerp radius (slower = blobby expand/contract)
+            currentRadius = lerp(currentRadius, targetRadius * maxRadius, 0.065);
+
+            const cx = currentX * w;
+            const cy = currentY * h;
+
+            if (currentRadius < 1) {
+                // Fully hidden — avoid rendering noise when off
+                revealLayer.style.clipPath = "circle(0px at 50% 50%)";
+            } else {
+                const pts = blobPoints(cx, cy, currentRadius, time);
+                const path = catmullRomPath(pts);
+                revealLayer.style.clipPath = `path('${path}')`;
+            }
+
             animFrame = requestAnimationFrame(tick);
         };
         animFrame = requestAnimationFrame(tick);
 
+        // ── Mouse events ───────────────────────────────
         const onMouseMove = (e: MouseEvent) => {
             const rect = imageWrap.getBoundingClientRect();
-            targetX = ((e.clientX - rect.left) / rect.width) * 100;
-            targetY = ((e.clientY - rect.top) / rect.height) * 100;
+            mouseX = (e.clientX - rect.left) / rect.width;
+            mouseY = (e.clientY - rect.top) / rect.height;
         };
 
         const onMouseEnter = () => {
-            targetRadius = 65;
+            targetRadius = 1; // 1 × maxRadius (computed per-frame)
         };
 
         const onMouseLeave = () => {
@@ -201,7 +264,8 @@ export default function SecondHero() {
                     {/* Name (split chars) */}
                     <h2
                         ref={nameSplitRef}
-                        className="text-[4rem] md:text-[5.5rem] lg:text-[6.5rem] font-bold tracking-tighter leading-none mb-4 font-serif italic whitespace-nowrap"
+                        className="text-[3rem] sm:text-[4rem] md:text-[5.5rem] lg:text-[6.5rem] font-bold tracking-tighter leading-none mb-4 font-serif italic"
+                        style={{ wordBreak: 'break-word' }}
                     >
                         {NAME}
                     </h2>

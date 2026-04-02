@@ -6,44 +6,34 @@ export default function CustomCursor() {
     const cursorDotRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Don't activate on touch/mobile devices
+        if (window.matchMedia('(pointer: coarse)').matches) return;
+
         const cursor = cursorRef.current;
         const cursorDot = cursorDotRef.current;
-
         if (!cursor || !cursorDot) return;
 
         let mouseX = window.innerWidth / 2;
         let mouseY = window.innerHeight / 2;
-
         let cursorX = mouseX;
         let cursorY = mouseY;
+        let rafId: number;
 
-        // Follow mouse
         const onMouseMove = (e: MouseEvent) => {
             mouseX = e.clientX;
             mouseY = e.clientY;
-
-            // Instantly move the small dot
-            gsap.set(cursorDot, {
-                x: mouseX,
-                y: mouseY,
-            });
+            gsap.set(cursorDot, { x: mouseX, y: mouseY });
         };
 
-        // Smoothly move the outer circle
         const render = () => {
             cursorX += (mouseX - cursorX) * 0.15;
             cursorY += (mouseY - cursorY) * 0.15;
-
-            gsap.set(cursor, {
-                x: cursorX,
-                y: cursorY,
-            });
-
-            requestAnimationFrame(render);
+            gsap.set(cursor, { x: cursorX, y: cursorY });
+            rafId = requestAnimationFrame(render);
         };
 
         window.addEventListener('mousemove', onMouseMove);
-        requestAnimationFrame(render);
+        rafId = requestAnimationFrame(render);
 
         const onMouseOver = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
@@ -63,11 +53,10 @@ export default function CustomCursor() {
 
         document.body.addEventListener('mouseover', onMouseOver);
         document.body.addEventListener('mouseout', onMouseOut);
-
-        // Hide default cursor
         document.body.style.cursor = 'none';
 
         return () => {
+            cancelAnimationFrame(rafId);
             window.removeEventListener('mousemove', onMouseMove);
             document.body.removeEventListener('mouseover', onMouseOver);
             document.body.removeEventListener('mouseout', onMouseOut);
@@ -79,12 +68,12 @@ export default function CustomCursor() {
         <>
             <div
                 ref={cursorRef}
-                className="fixed top-0 left-0 w-8 h-8 border border-white/50 rounded-full pointer-events-none z-[9999] -ml-4 -mt-4 mix-blend-difference"
-            ></div>
+                className="fixed top-0 left-0 w-8 h-8 border border-white/50 rounded-full pointer-events-none z-[9999] -ml-4 -mt-4 mix-blend-difference hidden md:block"
+            />
             <div
                 ref={cursorDotRef}
-                className="fixed top-0 left-0 w-1.5 h-1.5 bg-white rounded-full pointer-events-none z-[9999] -ml-[3px] -mt-[3px] mix-blend-difference"
-            ></div>
+                className="fixed top-0 left-0 w-1.5 h-1.5 bg-white rounded-full pointer-events-none z-[9999] -ml-[3px] -mt-[3px] mix-blend-difference hidden md:block"
+            />
         </>
     );
 }
