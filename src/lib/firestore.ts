@@ -225,6 +225,41 @@ export async function deleteSkill(id: string) {
   return deleteDoc(docRef('skills', id));
 }
 
+// ─── Messages (Contact Form) ─────────────────────────────────────────────────
+
+export interface Message {
+  id?: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export async function getMessages(): Promise<Message[]> {
+  const snap = await getDocs(colRef('messages'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Message));
+}
+
+export function watchMessages(cb: (list: Message[]) => void) {
+  return onSnapshot(colRef('messages'), snap =>
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Message)))
+  );
+}
+
+export async function addMessage(data: Omit<Message, 'id'>) {
+  return addDoc(colRef('messages'), data);
+}
+
+export async function updateMessage(id: string, data: Partial<Message>) {
+  return updateDoc(docRef('messages', id), data);
+}
+
+export async function deleteMessage(id: string) {
+  return deleteDoc(docRef('messages', id));
+}
+
 // ─── About ────────────────────────────────────────────────────────────────────
 
 export async function getAbout(): Promise<About | null> {
