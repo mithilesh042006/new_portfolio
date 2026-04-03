@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Upload, Sparkles, FileText, Loader2 } from 'lucide-react';
 import {
   getProjects, addProject, updateProject, deleteProject, type Project,
 } from '../../lib/firestore';
@@ -12,6 +12,69 @@ const empty: Omit<Project, 'id'> = {
   category: '', order: 0,
 };
 
+const AI_PROMPT = `You are a portfolio content assistant. Analyze the following project documentation and extract structured project details for a developer portfolio.
+
+Return ONLY a valid JSON object with these fields:
+{
+  "title": "Project name",
+  "description": "A compelling 2-3 sentence portfolio description",
+  "tech": ["Technology1", "Technology2"],
+  "category": "Web App | Mobile App | API | Tool | Library | Other",
+  "liveUrl": "URL if mentioned, otherwise empty string",
+  "githubUrl": "GitHub URL if mentioned, otherwise empty string",
+  "year": 2025
+}
+
+Rules:
+- Use ONLY information found in the document. Never invent technologies or details.
+- Write the description in professional, portfolio-friendly language.
+- For the tech array, list specific technologies (React, Node.js, Firebase, etc.), not vague terms.
+- If a field cannot be determined, use an empty string or empty array.
+- Return ONLY the JSON object, no markdown fences, no explanation.
+
+DOCUMENT CONTENT:
+`;
+
+async function generateProjectDetails(fileContent: string): Promise<Partial<Omit<Project, 'id'>>> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'user', content: AI_PROMPT + fileContent },
+      ],
+      max_tokens: 800,
+      temperature: 0.3,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message ?? `API error ${res.status}`);
+  }
+
+  const data = await res.json();
+  let raw = data.choices?.[0]?.message?.content ?? '';
+
+  // Strip markdown fences if model wraps the JSON
+  raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+  const parsed = JSON.parse(raw);
+  return {
+    title: parsed.title ?? '',
+    description: parsed.description ?? '',
+    tech: Array.isArray(parsed.tech) ? parsed.tech : [],
+    category: parsed.category ?? '',
+    liveUrl: parsed.liveUrl ?? '',
+    githubUrl: parsed.githubUrl ?? '',
+    year: typeof parsed.year === 'number' ? parsed.year : new Date().getFullYear(),
+  };
+}
+
 export default function AdminProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,17 +84,23 @@ export default function AdminProjects() {
   const [uploading, setUploading] = useState(false);
   const [techInput, setTechInput] = useState('');
 
+  // AI generation state
+  const [generating, setGenerating] = useState(false);
+  const [docFileName, setDocFileName] = useState('');
+  const docInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     getProjects().then(data => { setProjects(data); setLoading(false); });
   }, []);
 
   const refresh = () => getProjects().then(setProjects);
 
-  const openAdd = () => { setEditing(null); setForm(empty); setTechInput(''); setShowForm(true); };
+  const openAdd = () => { setEditing(null); setForm(empty); setTechInput(''); setDocFileName(''); setShowForm(true); };
   const openEdit = (p: Project) => {
     setEditing(p);
     setForm({ ...p });
     setTechInput(p.tech.join(', '));
+    setDocFileName('');
     setShowForm(true);
   };
 
@@ -47,6 +116,68 @@ export default function AdminProjects() {
       toast.error(err.message ?? 'Upload failed');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // ── AI Document Upload & Generation ──
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['md', 'txt'].includes(ext ?? '')) {
+      toast.error('Only .md and .txt files are supported');
+      return;
+    }
+
+    // Validate file size (1MB limit)
+    if (file.size > 1024 * 1024) {
+      toast.error('File too large. Maximum size is 1MB.');
+      return;
+    }
+
+    setDocFileName(file.name);
+    setGenerating(true);
+
+    try {
+      // Read file content
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsText(file);
+      });
+
+      if (!content.trim()) {
+        toast.error('Document is empty');
+        setGenerating(false);
+        return;
+      }
+
+      // Call AI
+      const result = await generateProjectDetails(content);
+
+      // Auto-fill the form
+      setForm(f => ({
+        ...f,
+        title: result.title || f.title,
+        description: result.description || f.description,
+        tech: result.tech?.length ? result.tech : f.tech,
+        category: result.category || f.category,
+        liveUrl: result.liveUrl || f.liveUrl,
+        githubUrl: result.githubUrl || f.githubUrl,
+        year: result.year || f.year,
+      }));
+      setTechInput((result.tech ?? []).join(', '));
+      toast.success('AI generated project details! Review and save.');
+    } catch (err: any) {
+      console.error('AI generation failed:', err);
+      toast.error(err.message ?? 'AI generation failed');
+    } finally {
+      setGenerating(false);
+      // Reset file input so same file can be re-uploaded
+      if (docInputRef.current) docInputRef.current.value = '';
     }
   };
 
@@ -134,6 +265,44 @@ export default function AdminProjects() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold">{editing ? 'Edit Project' : 'Add Project'}</h2>
               <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+
+            {/* ── AI Auto-Fill Section ── */}
+            <div className="mb-6 p-4 rounded-xl border border-dashed border-purple-500/40 bg-purple-500/5">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-semibold text-purple-300">Generate with AI</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                Upload a project doc (.md or .txt) to auto-fill all fields using AI.
+              </p>
+
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm cursor-pointer transition-all duration-300 ${
+                generating
+                  ? 'bg-purple-900/20 border-purple-500/50 text-purple-300'
+                  : 'bg-[#0a0a0a] border-gray-700 text-gray-300 hover:border-purple-500/50 hover:bg-purple-900/10'
+              }`}>
+                {generating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                    <span>Analyzing <span className="font-mono text-purple-200">{docFileName}</span>…</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4 text-purple-400" />
+                    <span>{docFileName || 'Upload Document'}</span>
+                    <Sparkles className="w-3 h-3 ml-auto text-purple-500" />
+                  </>
+                )}
+                <input
+                  ref={docInputRef}
+                  type="file"
+                  accept=".md,.txt"
+                  className="hidden"
+                  onChange={handleDocUpload}
+                  disabled={generating}
+                />
+              </label>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

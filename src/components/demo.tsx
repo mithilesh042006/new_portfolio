@@ -57,7 +57,7 @@ export default function DemoOne() {
                     filter: "drop-shadow(0px 2px 12px rgba(255,255,255,0.28))"
                 }}
             >
-                My Works
+                My Achievements
             </h2>
 
         </section>

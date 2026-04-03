@@ -6,6 +6,7 @@ import CustomCursor from './components/CustomCursor';
 import FeaturedProjects from './components/FeaturedProjects';
 import Qualifications from './components/Qualifications';
 import Experiences from './components/Experiences';
+import Skills from './components/Skills';
 import Testimonials from './components/Testimonials';
 import Footer from './components/Footer';
 import AiChat from './components/AiChat';
@@ -22,6 +23,7 @@ function Portfolio() {
       <DemoOne />
       <Qualifications />
       <Experiences />
+      <Skills />
       <Testimonials />
       <AiTerminal />
       <Footer />

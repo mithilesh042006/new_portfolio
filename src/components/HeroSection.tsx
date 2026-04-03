@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import Lenis from "@studio-freight/lenis";
-import "./HeroSection.css"; // We'll move the vanilla CSS here
+import "./HeroSection.css";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -71,16 +71,9 @@ export default function HeroSection() {
             ctx.drawImage(img, cx, cy, cw, ch, 0, 0, w, h);
         }
 
-        // 3. Define Sequences
-        const sequences = [
-            // { folder: "s1", frameCount: 240, sectionId: "#section-1" },
-            { folder: "s2", frameCount: 240, sectionId: "#section-2" },
-            { folder: "s3", frameCount: 240, sectionId: "#section-3" },
-        ];
-
-        const allImages: HTMLImageElement[][] = [];
-        let currentSeqIndex = 0;
-        let currentFrameIndex = 0;
+        // 3. Load all 240 frames from new_seq
+        const FRAME_COUNT = 240;
+        const images: HTMLImageElement[] = [];
 
         const pad = (number: number, length: number) => {
             let str = "" + number;
@@ -88,19 +81,16 @@ export default function HeroSection() {
             return str;
         };
 
-        sequences.forEach((seq) => {
-            const images: HTMLImageElement[] = [];
-            for (let i = 1; i <= seq.frameCount; i++) {
-                const img = new Image();
-                img.src = `/sequence/${seq.folder}/ezgif-frame-${pad(i, 3)}.jpg`;
-                images.push(img);
-            }
-            allImages.push(images);
-        });
+        for (let i = 1; i <= FRAME_COUNT; i++) {
+            const img = new Image();
+            img.src = `/new_seq/ezgif-frame-${pad(i, 3)}.jpg`;
+            images.push(img);
+        }
+
+        let currentFrameIndex = 0;
 
         const render = () => {
-            if (!allImages[currentSeqIndex]) return;
-            const img = allImages[currentSeqIndex][currentFrameIndex];
+            const img = images[currentFrameIndex];
             if (img && img.complete) {
                 drawImageProp(context, img);
             } else if (img) {
@@ -111,68 +101,72 @@ export default function HeroSection() {
         window.addEventListener("resize", resizeCanvas);
         resizeCanvas();
 
-        if (allImages[0][0].complete) {
+        if (images[0].complete) {
             render();
         } else {
-            allImages[0][0].onload = render;
+            images[0].onload = render;
         }
 
-        // 4. GSAP Frame Triggers
+        // 4. GSAP Frame Scroll — map entire hero scroll to 0-239 frames
         const triggers: ScrollTrigger[] = [];
 
-        sequences.forEach((seq, index) => {
-            const obj = { frame: 0 };
-            const trigger = gsap.to(obj, {
-                frame: seq.frameCount - 1,
-                snap: "frame",
-                ease: "none",
-                scrollTrigger: {
-                    trigger: seq.sectionId,
-                    start: "top top",
-                    end: "bottom top",
-                    scrub: true,
-                    onUpdate: () => {
-                        currentSeqIndex = index;
-                        currentFrameIndex = Math.round(obj.frame);
-                        render();
-                    },
+        const obj = { frame: 0 };
+        const frameTween = gsap.to(obj, {
+            frame: FRAME_COUNT - 1,
+            snap: "frame",
+            ease: "none",
+            scrollTrigger: {
+                trigger: "#hero-scroll-section",
+                start: "top top",
+                end: "bottom top",
+                scrub: true,
+                onUpdate: () => {
+                    currentFrameIndex = Math.round(obj.frame);
+                    render();
                 },
-            });
-            if (trigger.scrollTrigger) triggers.push(trigger.scrollTrigger);
+            },
         });
+        if (frameTween.scrollTrigger) triggers.push(frameTween.scrollTrigger);
 
-        // 5. GSAP Text Fades
+        // 5. Text Fades — 3 text blocks across the scroll
         gsap.set("#text-1", { opacity: 1 });
         gsap.set("#text-2", { opacity: 0 });
         gsap.set("#text-3", { opacity: 0 });
 
-        sequences.forEach((seq, index) => {
-            const trigger = ScrollTrigger.create({
-                trigger: seq.sectionId,
-                start: "top 60%",
-                end: "center 60%",
-                onEnter: () => gsap.to(`#text-${index + 1}`, { opacity: 1, duration: 1, ease: "power2.out" }),
-                onLeave: () => gsap.to(`#text-${index + 1}`, { opacity: 0, duration: 1, ease: "power2.out" }),
-                onEnterBack: () => gsap.to(`#text-${index + 1}`, { opacity: 1, duration: 1, ease: "power2.out" }),
-                onLeaveBack: () => {
-                    if (index !== 0) gsap.to(`#text-${index + 1}`, { opacity: 0, duration: 1, ease: "power2.out" });
-                },
-            });
-            triggers.push(trigger);
+        // Text 1: visible at the start, fades out at ~30%
+        const t1 = ScrollTrigger.create({
+            trigger: "#hero-scroll-section",
+            start: "top top",
+            end: "30% top",
+            onEnter: () => gsap.to("#text-1", { opacity: 1, duration: 0.6 }),
+            onLeave: () => gsap.to("#text-1", { opacity: 0, duration: 0.6 }),
+            onEnterBack: () => gsap.to("#text-1", { opacity: 1, duration: 0.6 }),
         });
+        triggers.push(t1);
 
-        // text-3: appears in the second half of the last section (before hero scroll ends)
-        const text3Trigger = ScrollTrigger.create({
-            trigger: "#section-3",
-            start: "center 60%",
-            end: "bottom 60%",
-            onEnter: () => gsap.to("#text-3", { opacity: 1, duration: 1, ease: "power2.out" }),
-            onLeave: () => gsap.to("#text-3", { opacity: 0, duration: 1, ease: "power2.out" }),
-            onEnterBack: () => gsap.to("#text-3", { opacity: 1, duration: 1, ease: "power2.out" }),
-            onLeaveBack: () => gsap.to("#text-3", { opacity: 0, duration: 1, ease: "power2.out" }),
+        // Text 2: fades in at ~30%, fades out at ~65%
+        const t2 = ScrollTrigger.create({
+            trigger: "#hero-scroll-section",
+            start: "28% top",
+            end: "65% top",
+            onEnter: () => gsap.to("#text-2", { opacity: 1, duration: 0.6 }),
+            onLeave: () => gsap.to("#text-2", { opacity: 0, duration: 0.6 }),
+            onEnterBack: () => gsap.to("#text-2", { opacity: 1, duration: 0.6 }),
+            onLeaveBack: () => gsap.to("#text-2", { opacity: 0, duration: 0.6 }),
         });
-        triggers.push(text3Trigger);
+        triggers.push(t2);
 
+        // Text 3: fades in at ~63%, stays until end
+        const t3 = ScrollTrigger.create({
+            trigger: "#hero-scroll-section",
+            start: "63% top",
+            end: "bottom top",
+            onEnter: () => gsap.to("#text-3", { opacity: 1, duration: 0.6 }),
+            onLeave: () => gsap.to("#text-3", { opacity: 0, duration: 0.6 }),
+            onEnterBack: () => gsap.to("#text-3", { opacity: 1, duration: 0.6 }),
+            onLeaveBack: () => gsap.to("#text-3", { opacity: 0, duration: 0.6 }),
+        });
+        triggers.push(t3);
 
         // Cleanup
         return () => {
@@ -205,8 +199,7 @@ export default function HeroSection() {
             </div>
 
             <main className="scroll-content">
-                <section className="sequence-section" id="section-2"></section>
-                <section className="sequence-section" id="section-3"></section>
+                <section className="sequence-section" id="hero-scroll-section" style={{ height: '500vh' }}></section>
             </main>
         </div>
     );

@@ -3,7 +3,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import toast from 'react-hot-toast';
 import {
-  FolderOpen, Briefcase, GraduationCap, MessageSquare, User, LogOut, LayoutDashboard, Image,
+  FolderOpen, Briefcase, GraduationCap, MessageSquare, User, LogOut, LayoutDashboard, Image, Wrench,
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/admin/qualifications',label: 'Qualifications', icon: GraduationCap },
   { to: '/admin/testimonials',  label: 'Testimonials',   icon: MessageSquare },
   { to: '/admin/gallery',       label: 'Gallery',        icon: Image },
+  { to: '/admin/skills',        label: 'Skills',         icon: Wrench },
   { to: '/admin/about',         label: 'About',          icon: User },
 ];
 

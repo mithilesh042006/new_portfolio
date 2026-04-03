@@ -192,6 +192,39 @@ export async function deleteGalleryImage(id: string) {
   return deleteDoc(docRef('gallery_images', id));
 }
 
+// ─── Skills ───────────────────────────────────────────────────────────────────
+
+export interface Skill {
+  id?: string;
+  name: string;
+  iconUrl: string;
+  category: string;
+  order: number;
+}
+
+export async function getSkills(): Promise<Skill[]> {
+  const snap = await getDocs(colRef('skills'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Skill));
+}
+
+export function watchSkills(cb: (list: Skill[]) => void) {
+  return onSnapshot(colRef('skills'), snap =>
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Skill)))
+  );
+}
+
+export async function addSkill(data: Omit<Skill, 'id'>) {
+  return addDoc(colRef('skills'), data);
+}
+
+export async function updateSkill(id: string, data: Partial<Skill>) {
+  return updateDoc(docRef('skills', id), data);
+}
+
+export async function deleteSkill(id: string) {
+  return deleteDoc(docRef('skills', id));
+}
+
 // ─── About ────────────────────────────────────────────────────────────────────
 
 export async function getAbout(): Promise<About | null> {

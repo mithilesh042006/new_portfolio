@@ -8,6 +8,7 @@ import AdminQualifications from './pages/AdminQualifications';
 import AdminTestimonials from './pages/AdminTestimonials';
 import AdminAbout from './pages/AdminAbout';
 import AdminGallery from './pages/AdminGallery';
+import AdminSkills from './pages/AdminSkills';
 
 export default function AdminRoutes() {
   return (
@@ -28,6 +29,7 @@ export default function AdminRoutes() {
         <Route path="testimonials" element={<AdminTestimonials />} />
         <Route path="about" element={<AdminAbout />} />
         <Route path="gallery" element={<AdminGallery />} />
+        <Route path="skills" element={<AdminSkills />} />
       </Route>
     </Routes>
   );
