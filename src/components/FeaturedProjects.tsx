@@ -204,11 +204,11 @@ export default function FeaturedProjects() {
                                                 <Github className="w-4 h-4" />
                                             </a>
                                         )}
-                                        {!project.liveUrl && !project.githubUrl && (
+                                        {/* {!project.liveUrl && !project.githubUrl && (
                                             <div className="w-12 h-12 rounded-full border border-gray-600 flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all">
                                                 <ArrowUpRight className="w-6 h-6" />
                                             </div>
-                                        )}
+                                        )} */}
                                     </div>
                                 </div>
                             </div>
