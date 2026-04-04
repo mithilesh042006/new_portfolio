@@ -84,7 +84,7 @@ export default function HeroSection() {
 
         for (let i = 1; i <= FRAME_COUNT; i++) {
             const img = new Image();
-            img.src = `/new_seq/ezgif-frame-${pad(i, 3)}.jpg`;
+            img.src = `/new_bg/ezgif-frame-${pad(i, 3)}.jpg`;
             images.push(img);
         }
 
