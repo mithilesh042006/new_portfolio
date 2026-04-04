@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import { ArrowUpRight, ExternalLink, Github, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, Github, ChevronLeft, ChevronRight } from 'lucide-react';
 import { watchProjects, type Project } from '../lib/firestore';
 
 gsap.registerPlugin(ScrollTrigger);
