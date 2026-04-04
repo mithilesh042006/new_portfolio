@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Sparkles, FileText, Loader2, ImagePlus } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Sparkles, FileText, Loader2, ImagePlus, GripVertical } from 'lucide-react';
 import {
   getProjects, addProject, updateProject, deleteProject, type Project,
 } from '../../lib/firestore';
@@ -254,11 +254,58 @@ export default function AdminProjects() {
     await refresh();
   };
 
+  // ── Drag & Drop Reorder ──
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+
+  const handleRowDragStart = (idx: number) => {
+    setDragIdx(idx);
+  };
+
+  const handleRowDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    setOverIdx(idx);
+  };
+
+  const handleRowDrop = async (idx: number) => {
+    if (dragIdx === null || dragIdx === idx) {
+      setDragIdx(null);
+      setOverIdx(null);
+      return;
+    }
+
+    const reordered = [...projects];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(idx, 0, moved);
+
+    // Update local state immediately
+    setProjects(reordered);
+    setDragIdx(null);
+    setOverIdx(null);
+
+    // Persist new order to Firestore
+    try {
+      await Promise.all(
+        reordered.map((p, i) => updateProject(p.id!, { order: i }))
+      );
+      toast.success('Order updated');
+    } catch {
+      toast.error('Failed to update order');
+      await refresh();
+    }
+  };
+
+  const handleRowDragEnd = () => {
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
+    <div className="overflow-hidden">
+      <div className="flex items-center justify-between mb-8 sticky top-0 bg-black/80 backdrop-blur-sm z-10 py-4 -mt-4 -mx-1 px-1">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <button onClick={openAdd} className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors">
+        <button onClick={openAdd} className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors flex-shrink-0">
           <Plus className="w-4 h-4" /> Add Project
         </button>
       </div>
@@ -266,34 +313,52 @@ export default function AdminProjects() {
       {loading ? (
         <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>
       ) : (
-        <div className="grid gap-4">
-          {projects.map(p => (
-            <div key={p.id} className="bg-[#111] border border-gray-800 rounded-xl p-5 flex items-center gap-4">
+        <div className="grid gap-2">
+          <p className="text-xs text-gray-600 mb-1">⠿ Drag to reorder projects</p>
+          {projects.map((p, idx) => (
+            <div
+              key={p.id}
+              draggable
+              onDragStart={() => handleRowDragStart(idx)}
+              onDragOver={(e) => handleRowDragOver(e, idx)}
+              onDrop={() => handleRowDrop(idx)}
+              onDragEnd={handleRowDragEnd}
+              className={`bg-[#111] border rounded-xl p-4 flex items-center gap-3 overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ${
+                dragIdx === idx ? 'opacity-40 scale-[0.98] border-purple-500/50' :
+                overIdx === idx ? 'border-purple-400 bg-purple-500/5 scale-[1.01]' :
+                'border-gray-800 hover:border-gray-700'
+              }`}
+            >
+              {/* Drag Handle */}
+              <div className="flex-shrink-0 text-gray-600 hover:text-gray-400 transition-colors">
+                <GripVertical className="w-4 h-4" />
+              </div>
+
               {p.imageUrl && (
-                <img src={p.imageUrl} alt={p.title} className="w-20 h-14 object-cover rounded-lg flex-shrink-0" />
+                <img src={p.imageUrl} alt={p.title} className="w-16 h-12 object-cover rounded-lg flex-shrink-0" />
               )}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-600 font-mono">#{p.order ?? 0}</span>
-                  <h3 className="font-semibold text-white truncate">{p.title}</h3>
-                  {p.featured && <span className="text-xs bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full">Featured</span>}
-                  {(p.images?.length ?? 0) > 1 && <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">{p.images!.length} imgs</span>}
+                  <span className="text-xs text-gray-600 font-mono flex-shrink-0">#{idx}</span>
+                  <h3 className="font-semibold text-white truncate text-sm">{p.title}</h3>
+                  {p.featured && <span className="text-xs bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full flex-shrink-0">Featured</span>}
+                  {(p.images?.length ?? 0) > 1 && <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full flex-shrink-0">{p.images!.length} imgs</span>}
                 </div>
-                <p className="text-gray-500 text-sm mt-0.5 truncate">{p.description}</p>
-                <div className="flex gap-1 mt-2 flex-wrap">
+                <p className="text-gray-500 text-xs mt-0.5 truncate">{p.description}</p>
+                <div className="flex gap-1 mt-1.5 flex-wrap">
                   {p.tech.slice(0, 4).map(t => (
-                    <span key={t} className="text-xs bg-gray-900 text-gray-400 px-2 py-0.5 rounded">{t}</span>
+                    <span key={t} className="text-[10px] bg-gray-900 text-gray-400 px-1.5 py-0.5 rounded">{t}</span>
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button onClick={() => toggleFeatured(p)} className="p-2 text-gray-500 hover:text-yellow-400 transition-colors" title="Toggle featured">
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={() => toggleFeatured(p)} className="p-1.5 text-gray-500 hover:text-yellow-400 transition-colors" title="Toggle featured">
                   {p.featured ? <Star className="w-4 h-4" /> : <StarOff className="w-4 h-4" />}
                 </button>
-                <button onClick={() => openEdit(p)} className="p-2 text-gray-500 hover:text-white transition-colors">
+                <button onClick={() => openEdit(p)} className="p-1.5 text-gray-500 hover:text-white transition-colors">
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(p.id!)} className="p-2 text-gray-500 hover:text-red-400 transition-colors">
+                <button onClick={() => handleDelete(p.id!)} className="p-1.5 text-gray-500 hover:text-red-400 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

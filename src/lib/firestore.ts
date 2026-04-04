@@ -1,7 +1,7 @@
 import {
   collection, doc, getDocs, getDoc,
   addDoc, updateDoc, deleteDoc, setDoc,
-  onSnapshot,
+  onSnapshot, query, orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -75,12 +75,14 @@ const docRef = (colName: string, id: string) => doc(db, colName, id);
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 export async function getProjects(): Promise<Project[]> {
-  const snap = await getDocs(colRef('projects'));
+  const q = query(colRef('projects'), orderBy('order', 'asc'));
+  const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
 }
 
 export function watchProjects(cb: (projects: Project[]) => void) {
-  return onSnapshot(colRef('projects'), snap =>
+  const q = query(colRef('projects'), orderBy('order', 'asc'));
+  return onSnapshot(q, snap =>
     cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)))
   );
 }

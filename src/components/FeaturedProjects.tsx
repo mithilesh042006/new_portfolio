@@ -31,12 +31,12 @@ function ProjectImageCarousel({ images, title }: { images: string[]; title: stri
     };
 
     return (
-        <div className="relative w-full h-[250px] sm:h-[400px] md:h-[600px] overflow-hidden rounded-xl group/carousel">
+        <div className="relative w-full h-[250px] sm:h-[400px] md:h-[600px] overflow-hidden rounded-xl group/carousel bg-[#0a0a0a]">
             <img
                 ref={imgRef}
                 src={images[current]}
                 alt={`${title} - ${current + 1}`}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 filter grayscale hover:grayscale-0"
+                className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
             />
 
             {images.length > 1 && (
