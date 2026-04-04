@@ -6,7 +6,7 @@ import { ArrowUpRight, Github, Linkedin } from "lucide-react";
 gsap.registerPlugin(ScrollTrigger);
 
 const NAME = "Mithilesh";
-const ROLES = ["Creative Developer", "UI Engineer", "Motion Designer"];
+const ROLES = ["App Developer", "Backend Developer", "AI Engineer"];
 const BIO =
     "I craft high-performance digital experiences at the intersection of design and code — blending immersive animations, elegant interfaces, and cutting-edge web technology.";
 
