@@ -62,7 +62,6 @@ export interface About {
   socials: {
     github: string;
     linkedin: string;
-    twitter: string;
     instagram: string;
   };
 }

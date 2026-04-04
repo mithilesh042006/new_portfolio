@@ -143,7 +143,7 @@ export default function FeaturedProjects() {
     };
 
     return (
-        <section ref={sectionRef} className="py-24 px-6 md:px-12 lg:px-24 bg-black text-white w-full relative z-30">
+        <section ref={sectionRef} id="featured-projects" className="py-24 px-6 md:px-12 lg:px-24 bg-black text-white w-full relative z-30">
             <div ref={headerRef} className="flex flex-col md:flex-row justify-between items-end mb-16 md:mb-24">
                 <div>
                     <p className="text-gray-400 uppercase tracking-widest text-sm mb-4 font-semibold">Selected Work</p>

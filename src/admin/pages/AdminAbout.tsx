@@ -8,7 +8,7 @@ const defaultAbout: About = {
   name: 'Mithilesh',
   bio: 'I craft high-performance digital experiences at the intersection of design and code — blending immersive animations, elegant interfaces, and cutting-edge web technology.',
   email: 'hello@example.com',
-  socials: { github: '', linkedin: '', twitter: '', instagram: '' },
+  socials: { github: 'https://github.com/mithilesh042006', linkedin: 'https://www.linkedin.com/in/mithilesh-k-a0295632b/', instagram: '' },
 };
 
 export default function AdminAbout() {
@@ -57,7 +57,7 @@ export default function AdminAbout() {
         <div className="bg-[#111] border border-gray-800 rounded-xl p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-4">Social Links</p>
           <div className="grid grid-cols-1 gap-3">
-            {(['github', 'linkedin', 'twitter', 'instagram'] as const).map(key => (
+            {(['github', 'linkedin', 'instagram'] as const).map(key => (
               <div key={key} className="flex items-center gap-3">
                 <span className="text-gray-500 text-sm w-24 capitalize">{key}</span>
                 <input

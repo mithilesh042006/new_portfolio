@@ -20,9 +20,10 @@ export default function HeroSection() {
 
         lenis.on("scroll", ScrollTrigger.update);
 
-        gsap.ticker.add((time) => {
+        const tickerCallback = (time: number) => {
             lenis.raf(time * 1000);
-        });
+        };
+        gsap.ticker.add(tickerCallback);
         gsap.ticker.lagSmoothing(0);
 
         // 2. Setup Canvas
@@ -168,12 +169,12 @@ export default function HeroSection() {
         });
         triggers.push(t3);
 
-        // Cleanup
+        // Cleanup — only kill this component's triggers, not all global ones
         return () => {
             window.removeEventListener("resize", resizeCanvas);
+            gsap.ticker.remove(tickerCallback);
             lenis.destroy();
             triggers.forEach(t => t.kill());
-            ScrollTrigger.getAll().forEach(t => t.kill());
         };
     }, []);
 

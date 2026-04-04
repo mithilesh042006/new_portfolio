@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
-import { ArrowUpRight, Github, Linkedin, Twitter } from "lucide-react";
+import { ArrowUpRight, Github, Linkedin } from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -290,7 +290,7 @@ export default function SecondHero() {
                     <div ref={linksRef} className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
                         {/* CTA */}
                         <a
-                            href="#projects"
+                            href="#featured-projects"
                             className="interactable group flex items-center gap-3 text-base font-semibold uppercase tracking-widest border-b border-white pb-1 hover:text-gray-300 transition-colors"
                         >
                             See My Work
@@ -300,13 +300,14 @@ export default function SecondHero() {
                         {/* Socials */}
                         <div className="flex items-center gap-5">
                             {[
-                                { href: "#", Icon: Github, label: "GitHub" },
-                                { href: "#", Icon: Linkedin, label: "LinkedIn" },
-                                { href: "#", Icon: Twitter, label: "Twitter" },
+                                { href: "https://github.com/mithilesh042006", Icon: Github, label: "GitHub" },
+                                { href: "https://www.linkedin.com/in/mithilesh-k-a0295632b/", Icon: Linkedin, label: "LinkedIn" },
                             ].map(({ href, Icon, label }) => (
                                 <a
                                     key={label}
                                     href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     aria-label={label}
                                     className="interactable w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:border-white transition-all duration-300"
                                 >
@@ -375,7 +376,7 @@ export default function SecondHero() {
                                 className="text-xs uppercase tracking-widest text-gray-500 font-semibold px-4 py-2 rounded-full border border-gray-800 bg-black/50 backdrop-blur-sm"
                                 style={{ transition: "opacity 0.3s" }}
                             >
-                                Hover to reveal
+                                Hover
                             </span>
                         </div>
                     </div>
