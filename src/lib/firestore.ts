@@ -13,12 +13,13 @@ export interface Project {
   description: string;
   tech: string[];
   imageUrl: string;
+  images?: string[];
   liveUrl: string;
   githubUrl: string;
   featured: boolean;
   year: number;
   category: string;
-  order?: number;
+  order: number;
 }
 
 export interface Experience {

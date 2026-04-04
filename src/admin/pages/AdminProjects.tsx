@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Upload, Sparkles, FileText, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Sparkles, FileText, Loader2, ImagePlus } from 'lucide-react';
 import {
   getProjects, addProject, updateProject, deleteProject, type Project,
 } from '../../lib/firestore';
 import { uploadImage } from '../../lib/cloudinary';
 
 const empty: Omit<Project, 'id'> = {
-  title: '', description: '', tech: [], imageUrl: '', liveUrl: '',
-  githubUrl: '', featured: false, year: new Date().getFullYear(),
-  category: '', order: 0,
+  title: '', description: '', tech: [], imageUrl: '', images: [],
+  liveUrl: '', githubUrl: '', featured: false,
+  year: new Date().getFullYear(), category: '', order: 0,
 };
 
 const AI_PROMPT = `You are a portfolio content assistant. Analyze the following project documentation and extract structured project details for a developer portfolio.
@@ -44,9 +44,7 @@ async function generateProjectDetails(fileContent: string): Promise<Partial<Omit
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'user', content: AI_PROMPT + fileContent },
-      ],
+      messages: [{ role: 'user', content: AI_PROMPT + fileContent }],
       max_tokens: 800,
       temperature: 0.3,
     }),
@@ -59,8 +57,6 @@ async function generateProjectDetails(fileContent: string): Promise<Partial<Omit
 
   const data = await res.json();
   let raw = data.choices?.[0]?.message?.content ?? '';
-
-  // Strip markdown fences if model wraps the JSON
   raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
   const parsed = JSON.parse(raw);
@@ -87,51 +83,43 @@ export default function AdminProjects() {
   // AI generation state
   const [generating, setGenerating] = useState(false);
   const [docFileName, setDocFileName] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getProjects().then(data => { setProjects(data); setLoading(false); });
+    getProjects().then(data => {
+      setProjects(data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+      setLoading(false);
+    });
   }, []);
 
-  const refresh = () => getProjects().then(setProjects);
+  const refresh = () => getProjects().then(data =>
+    setProjects(data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
+  );
 
-  const openAdd = () => { setEditing(null); setForm(empty); setTechInput(''); setDocFileName(''); setShowForm(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ ...empty, order: projects.length });
+    setTechInput('');
+    setDocFileName('');
+    setShowForm(true);
+  };
+
   const openEdit = (p: Project) => {
     setEditing(p);
-    setForm({ ...p });
+    setForm({ ...p, images: p.images ?? [] });
     setTechInput(p.tech.join(', '));
     setDocFileName('');
     setShowForm(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const url = await uploadImage(file, 'portfolio/projects');
-      setForm(f => ({ ...f, imageUrl: url }));
-      toast.success('Image uploaded!');
-    } catch (err: any) {
-      toast.error(err.message ?? 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // ── AI Document Upload & Generation ──
-  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
+  // ── AI Document Processing ──
+  const processDocFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (!['md', 'txt'].includes(ext ?? '')) {
       toast.error('Only .md and .txt files are supported');
       return;
     }
-
-    // Validate file size (1MB limit)
     if (file.size > 1024 * 1024) {
       toast.error('File too large. Maximum size is 1MB.');
       return;
@@ -141,7 +129,6 @@ export default function AdminProjects() {
     setGenerating(true);
 
     try {
-      // Read file content
       const content = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -155,10 +142,8 @@ export default function AdminProjects() {
         return;
       }
 
-      // Call AI
       const result = await generateProjectDetails(content);
 
-      // Auto-fill the form
       setForm(f => ({
         ...f,
         title: result.title || f.title,
@@ -176,9 +161,67 @@ export default function AdminProjects() {
       toast.error(err.message ?? 'AI generation failed');
     } finally {
       setGenerating(false);
-      // Reset file input so same file can be re-uploaded
       if (docInputRef.current) docInputRef.current.value = '';
     }
+  }, []);
+
+  const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processDocFile(file);
+  };
+
+  // Drag & Drop handlers
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processDocFile(file);
+  };
+
+  // ── Image Uploads ──
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const url = await uploadImage(file, 'portfolio/projects');
+        uploaded.push(url);
+      }
+
+      setForm(f => {
+        const currentImages = f.images ?? [];
+        const newImageUrl = f.imageUrl || uploaded[0]; // first upload becomes primary
+        return {
+          ...f,
+          imageUrl: newImageUrl,
+          images: [...currentImages, ...uploaded],
+        };
+      });
+      toast.success(`${uploaded.length} image${uploaded.length > 1 ? 's' : ''} uploaded!`);
+    } catch (err: any) {
+      toast.error(err.message ?? 'Upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = (url: string) => {
+    setForm(f => {
+      const newImages = (f.images ?? []).filter(u => u !== url);
+      const newPrimary = url === f.imageUrl ? (newImages[0] ?? '') : f.imageUrl;
+      return { ...f, images: newImages, imageUrl: newPrimary };
+    });
+  };
+
+  const setPrimaryImage = (url: string) => {
+    setForm(f => ({ ...f, imageUrl: url }));
+    toast.success('Set as primary image');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -231,8 +274,10 @@ export default function AdminProjects() {
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600 font-mono">#{p.order ?? 0}</span>
                   <h3 className="font-semibold text-white truncate">{p.title}</h3>
                   {p.featured && <span className="text-xs bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full">Featured</span>}
+                  {(p.images?.length ?? 0) > 1 && <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">{p.images!.length} imgs</span>}
                 </div>
                 <p className="text-gray-500 text-sm mt-0.5 truncate">{p.description}</p>
                 <div className="flex gap-1 mt-2 flex-wrap">
@@ -267,30 +312,46 @@ export default function AdminProjects() {
               <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-500" /></button>
             </div>
 
-            {/* ── AI Auto-Fill Section ── */}
-            <div className="mb-6 p-4 rounded-xl border border-dashed border-purple-500/40 bg-purple-500/5">
+            {/* ── AI Auto-Fill with Drag & Drop ── */}
+            <div
+              className={`mb-6 p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${
+                dragOver
+                  ? 'border-purple-400 bg-purple-500/10 scale-[1.01]'
+                  : 'border-purple-500/30 bg-purple-500/5'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-4 h-4 text-purple-400" />
                 <span className="text-sm font-semibold text-purple-300">Generate with AI</span>
               </div>
               <p className="text-xs text-gray-500 mb-3">
-                Upload a project doc (.md or .txt) to auto-fill all fields using AI.
+                Drag & drop a project doc (.md or .txt) or click to browse.
               </p>
 
-              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm cursor-pointer transition-all duration-300 ${
+              <label className={`flex items-center justify-center gap-3 px-4 py-4 rounded-lg border text-sm cursor-pointer transition-all duration-300 ${
                 generating
                   ? 'bg-purple-900/20 border-purple-500/50 text-purple-300'
-                  : 'bg-[#0a0a0a] border-gray-700 text-gray-300 hover:border-purple-500/50 hover:bg-purple-900/10'
+                  : dragOver
+                    ? 'bg-purple-900/20 border-purple-400 text-purple-200'
+                    : 'bg-[#0a0a0a] border-gray-700 text-gray-300 hover:border-purple-500/50 hover:bg-purple-900/10'
               }`}>
                 {generating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
                     <span>Analyzing <span className="font-mono text-purple-200">{docFileName}</span>…</span>
                   </>
+                ) : dragOver ? (
+                  <>
+                    <FileText className="w-5 h-5 text-purple-300" />
+                    <span className="font-semibold">Drop file here</span>
+                  </>
                 ) : (
                   <>
                     <FileText className="w-4 h-4 text-purple-400" />
-                    <span>{docFileName || 'Upload Document'}</span>
+                    <span>{docFileName || 'Upload or Drop Document'}</span>
                     <Sparkles className="w-3 h-3 ml-auto text-purple-500" />
                   </>
                 )}
@@ -306,22 +367,54 @@ export default function AdminProjects() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Order */}
+              <Field label="Display Order">
+                <input type="number" required value={form.order} onChange={e => setForm(f => ({ ...f, order: +e.target.value }))} placeholder="0" />
+              </Field>
+
               <Field label="Title"><input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></Field>
               <Field label="Description"><textarea rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></Field>
               <Field label="Technologies (comma-separated)"><input value={techInput} onChange={e => setTechInput(e.target.value)} placeholder="React, TypeScript, Firebase" /></Field>
               <Field label="Category"><input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} /></Field>
               <Field label="Year"><input type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: +e.target.value }))} /></Field>
-              <Field label="Live URL"><input value={form.liveUrl} onChange={e => setForm(f => ({ ...f, liveUrl: e.target.value }))} /></Field>
-              <Field label="GitHub URL"><input value={form.githubUrl} onChange={e => setForm(f => ({ ...f, githubUrl: e.target.value }))} /></Field>
 
-              {/* Image Upload */}
+              {/* Optional Links */}
+              <Field label="Live URL (optional)"><input value={form.liveUrl} onChange={e => setForm(f => ({ ...f, liveUrl: e.target.value }))} placeholder="https://..." /></Field>
+              <Field label="GitHub URL (optional)"><input value={form.githubUrl} onChange={e => setForm(f => ({ ...f, githubUrl: e.target.value }))} placeholder="https://github.com/..." /></Field>
+
+              {/* Multi-Image Upload */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Project Image</label>
-                {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg mb-2" />}
+                <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Project Images</label>
+
+                {/* Image Gallery */}
+                {(form.images ?? []).length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {(form.images ?? []).map((url, i) => (
+                      <div key={i} className="relative group rounded-lg overflow-hidden">
+                        <img src={url} alt={`img-${i}`} className="w-full h-20 object-cover" />
+                        {url === form.imageUrl && (
+                          <span className="absolute top-1 left-1 text-[9px] bg-white text-black rounded px-1.5 py-0.5 font-bold">PRIMARY</span>
+                        )}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          {url !== form.imageUrl && (
+                            <button type="button" onClick={() => setPrimaryImage(url)} className="p-1 bg-white/20 rounded text-white hover:bg-white/40 transition-colors" title="Set as primary">
+                              <Star className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button type="button" onClick={() => removeImage(url)} className="p-1 bg-red-500/30 rounded text-red-300 hover:bg-red-500/60 transition-colors" title="Remove">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <label className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-300 cursor-pointer hover:border-gray-500 transition-colors">
-                  <Upload className="w-4 h-4" />
-                  {uploading ? 'Uploading…' : 'Upload Image'}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                  <ImagePlus className="w-4 h-4" />
+                  {uploading ? 'Uploading…' : 'Add Images'}
+                  <span className="text-xs text-gray-600 ml-auto">Multiple allowed</span>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
                 </label>
               </div>
 
